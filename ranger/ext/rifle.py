@@ -19,6 +19,7 @@ from __future__ import (absolute_import, division, print_function)
 import os.path
 import re
 from subprocess import Popen, PIPE
+import shlex
 import sys
 
 __version__ = 'rifle 1.9.2'
@@ -274,8 +275,14 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
         if isinstance(flags, str):
             self._app_flags += flags
         self._app_flags = squash_flags(self._app_flags)
-        filenames = "' '".join(f.replace("'", "'\\\''") for f in files if "\x00" not in f)
-        return "set -- '%s'; %s" % (filenames, action)
+        # filenames = "' '".join(f.replace("'", "'\\\''") for f in files if "\x00" not in f)
+        # return "set -- '%s'; %s" % (filenames, action)
+        self.hook_logger(type(files))
+        self.hook_logger(files)
+        if type(files) == type(""):
+            return [action] + ["_"] + [files]
+        else:
+            return [action] + ["_"] + files
 
     def list_commands(self, files, mimetype=None):
         """List all commands that are applicable for the given files
@@ -355,11 +362,11 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
             self.hook_before_executing(command, self._mimetype, self._app_flags)
             try:
                 if 'r' in flags:
-                    prefix = ['sudo', '-E', 'su', 'root', '-mc']
+                    prefix = ['sudo', 'su', 'root', '-c']
                 else:
                     prefix = ['/bin/sh', '-c']
 
-                cmd = prefix + [command]
+                cmd = prefix + command
                 if 't' in flags:
                     term = os.environ.get('TERMCMD', os.environ['TERM'])
 
@@ -389,9 +396,10 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                                          "Please set $TERMCMD manually or "
                                          "change fallbacks in rifle.conf.")
                         self._mimetype = 'ranger/x-terminal-emulator'
+                        # self.hook_logger(command)
                         self.execute(
-                            files=[command.split(';')[1].split('--')[0].strip()]
-                            + files, flags='f',
+                            " ".join([shlex.quote(s) for s in cmd]),
+                            flags='f',
                             mimetype='ranger/x-terminal-emulator')
                         return None
 
@@ -417,17 +425,14 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                     # A temporary fix.
                     if term in ['tilda', 'pantheon-terminal', 'terminology',
                                 'termite']:
-
-                        target = command.split(';')[0].split('--')[1].strip()
-                        app = command.split(';')[1].split('--')[0].strip()
-                        cmd = [os.environ['TERMCMD'], cmdflag, '%s %s'
-                               % (app, target)]
+                        cmd = [os.environ['TERMCMD'], cmdflag,
+                               " ".join([shlex.quote(s) for s in cmd])]
                     elif term in ['guake']:
                         cmd = [os.environ['TERMCMD'], '-n', '${PWD}', cmdflag] + cmd
                     else:
                         cmd = [os.environ['TERMCMD'], cmdflag] + cmd
 
-                    # self.hook_logger('cmd: %s' %cmd)
+                # self.hook_logger('cmd: %s' %cmd)
 
                 if 'f' in flags or 't' in flags:
                     Popen_forked(cmd, env=self.hook_environment(os.environ))
