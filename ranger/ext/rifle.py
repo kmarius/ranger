@@ -19,7 +19,6 @@ from __future__ import (absolute_import, division, print_function)
 import os.path
 import re
 from subprocess import Popen, PIPE
-import shlex
 import sys
 
 __version__ = 'rifle 1.9.2'
@@ -87,6 +86,9 @@ except ImportError:
             os._exit(0)  # pylint: disable=protected-access
         return True
 
+def _quote(string):
+    # quote single quotes in a string
+    return "'" + string.replace("'", "'\\\''") + "'"
 
 def _is_terminal():
     # Check if stdin (file descriptor 0), stdout (fd 1) and
@@ -275,10 +277,6 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
         if isinstance(flags, str):
             self._app_flags += flags
         self._app_flags = squash_flags(self._app_flags)
-        # filenames = "' '".join(f.replace("'", "'\\\''") for f in files if "\x00" not in f)
-        # return "set -- '%s'; %s" % (filenames, action)
-        self.hook_logger(type(files))
-        self.hook_logger(files)
         if type(files) == type(""):
             return [action] + ["_"] + [files]
         else:
@@ -398,7 +396,7 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                         self._mimetype = 'ranger/x-terminal-emulator'
                         # self.hook_logger(command)
                         self.execute(
-                            " ".join([shlex.quote(s) for s in cmd]),
+                            " ".join([_quote(s) for s in cmd]),
                             flags='f',
                             mimetype='ranger/x-terminal-emulator')
                         return None
@@ -426,7 +424,7 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                     if term in ['tilda', 'pantheon-terminal', 'terminology',
                                 'termite']:
                         cmd = [os.environ['TERMCMD'], cmdflag,
-                               " ".join([shlex.quote(s) for s in cmd])]
+                               " ".join([_quote(s) for s in cmd])]
                     elif term in ['guake']:
                         cmd = [os.environ['TERMCMD'], '-n', '${PWD}', cmdflag] + cmd
                     else:
