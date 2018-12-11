@@ -394,11 +394,8 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                                          "Please set $TERMCMD manually or "
                                          "change fallbacks in rifle.conf.")
                         self._mimetype = 'ranger/x-terminal-emulator'
-                        # self.hook_logger(command)
-                        self.execute(
-                            " ".join([_quote(s) for s in cmd]),
-                            flags='f',
-                            mimetype='ranger/x-terminal-emulator')
+                        self.execute(cmd, flags='f',
+                                     mimetype='ranger/x-terminal-emulator')
                         return None
 
                     # Choose correct cmdflag accordingly
