@@ -86,9 +86,11 @@ except ImportError:
             os._exit(0)  # pylint: disable=protected-access
         return True
 
+
 def _quote(string):
     # quote single quotes in a string
     return "'" + string.replace("'", "'\\\''") + "'"
+
 
 def _is_terminal():
     # Check if stdin (file descriptor 0), stdout (fd 1) and
@@ -372,6 +374,7 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                     # self._mimetype = 'ranger/x-terminal-emulator'
                     self.hook_after_executing(command, self._mimetype, self._app_flags)
                     self.execute(cmd, flags='f',
+                                 label=os.environ.get('TERMCMD', None),
                                  mimetype='ranger/x-terminal-emulator')
                     return None
 
