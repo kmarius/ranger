@@ -279,7 +279,7 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
         if isinstance(flags, str):
             self._app_flags += flags
         self._app_flags = squash_flags(self._app_flags)
-        return [action, "_"] + files
+        return action, files
 
     def list_commands(self, files, mimetype=None):
         """List all commands that are applicable for the given files
@@ -331,7 +331,7 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                 cmd = self.hook_command_preprocessing(cmd)
                 if cmd == ASK_COMMAND:
                     return ASK_COMMAND
-                command = self._build_command(files, cmd, flags + flgs)
+                cmd, files = self._build_command(files, cmd, flags + flgs)
                 flags = self._app_flags
                 break
             else:
@@ -339,10 +339,10 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
         else:
             if label and label in get_executables():
                 cmd = '%s "$@"' % label
-                command = self._build_command(files, cmd, flags)
+                cmd, files = self._build_command(files, cmd, flags)
 
         # Execute command
-        if command is None:  # pylint: disable=too-many-nested-blocks
+        if cmd is None:  # pylint: disable=too-many-nested-blocks
             if found_at_least_one:
                 if label:
                     self.hook_logger("Label '%s' is undefined" % label)
@@ -355,35 +355,39 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                 os.environ['PAGER'] = DEFAULT_PAGER
             if 'EDITOR' not in os.environ:
                 os.environ['EDITOR'] = os.environ.get('VISUAL', DEFAULT_EDITOR)
+
+            if 'r' in flags:
+                prefix = ['sudo', 'su', 'root', '-c']
+            else:
+                prefix = ['/bin/sh', '-c']
+
+            command = prefix + [cmd, "_"] + files
+
             command = self.hook_command_postprocessing(command)
             self.hook_before_executing(command, self._mimetype, self._app_flags)
             try:
-                if 'r' in flags:
-                    prefix = ['sudo', 'su', 'root', '-c']
-                else:
-                    prefix = ['/bin/sh', '-c']
-
-                # command = prefix + [command, "_"] + files
-                cmd = prefix + command
+                # self.hook_logger('command: %s' %command)
                 if 't' in flags:
-                    self.hook_logger("Can not determine terminal command, "
-                                     "using rifle to determine fallback.  "
-                                     "Please set $TERMCMD manually or "
-                                     "change fallbacks in rifle.conf.")
+                    # self.hook_logger("Can not determine terminal command, "
+                    #                  "using rifle to determine fallback.  "
+                    #                  "Please set $TERMCMD manually or "
+                    #                  "change fallbacks in rifle.conf.")
                     # this caused mangling in tmux
                     # self._mimetype = 'ranger/x-terminal-emulator'
                     self.hook_after_executing(command, self._mimetype, self._app_flags)
-                    self.execute(cmd, flags='f',
+                    self.execute(command, flags='f',
                                  label=os.environ.get('TERMCMD', None),
                                  mimetype='ranger/x-terminal-emulator')
                     return None
 
-                # self.hook_logger('cmd: %s' %cmd)
+                # self.hook_logger('command: %s' %command)
 
+                env = os.environ
+                env['RANGER_FILES_QUOTED'] = " ".join(_quote(f) for f in files)
                 if 'f' in flags:
-                    Popen_forked(cmd, env=self.hook_environment(os.environ))
+                    Popen_forked(command, env=self.hook_environment(env))
                 else:
-                    process = Popen(cmd, env=self.hook_environment(os.environ))
+                    process = Popen(command, env=self.hook_environment(env))
                     process.wait()
             finally:
                 self.hook_after_executing(command, self._mimetype, self._app_flags)
