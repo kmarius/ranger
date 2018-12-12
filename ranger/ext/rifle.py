@@ -362,25 +362,25 @@ class Rifle(object):  # pylint: disable=too-many-instance-attributes
                 prefix = ['/bin/sh', '-c']
 
             command = prefix + [cmd, "_"] + files
-
             command = self.hook_command_postprocessing(command)
-            self.hook_before_executing(command, self._mimetype, self._app_flags)
+
+            # see next two comments
+            # self.hook_before_executing(command, self._mimetype, self._app_flags)
+            # self.hook_logger('command: %s' %command)
             try:
-                # self.hook_logger('command: %s' %command)
                 if 't' in flags:
-                    # self.hook_logger("Can not determine terminal command, "
-                    #                  "using rifle to determine fallback.  "
-                    #                  "Please set $TERMCMD manually or "
-                    #                  "change fallbacks in rifle.conf.")
-                    # this caused mangling in tmux
-                    # self._mimetype = 'ranger/x-terminal-emulator'
-                    self.hook_after_executing(command, self._mimetype, self._app_flags)
+                    # running the hook_before_executing before, and then _not_
+                    # this one will mangle tmux
+                    # self.hook_after_executing(command, self._mimetype, self._app_flags)
+
                     self.execute(command, flags='f',
                                  label=os.environ.get('TERMCMD', None),
                                  mimetype='ranger/x-terminal-emulator')
                     return None
 
-                # self.hook_logger('command: %s' %command)
+                # instead only run the before hook when not starting
+                # a terminal
+                self.hook_before_executing(command, self._mimetype, self._app_flags)
 
                 env = os.environ
                 env['RANGER_FILES_QUOTED'] = " ".join(_quote(f) for f in files)
